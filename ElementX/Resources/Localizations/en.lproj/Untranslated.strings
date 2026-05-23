@@ -10,10 +10,11 @@
 "soft_logout_signin_e2e_warning_notice" = "Sign in to recover encryption keys stored exclusively on this device. You need them to read all of your secure messages on any device.";
 "soft_logout_signin_notice" = "Your homeserver (%1$s) admin has signed you out of your account %2$s (%3$s).";
 "soft_logout_signin_title" = "Sign in";
+"a11y_screen_room_active_comms_walkie_menu" = "Active comms options";
+"a11y_screen_room_active_comms_walkie_ptt" = "Push to talk";
+"screen_room_active_comms_walkie_banner" = "Hold the button to talk. Incoming voice messages play on the speaker.";
+"screen_room_active_comms_walkie_hold" = "Hold to talk";
+"screen_room_active_comms_walkie_menu_title" = "Active comms";
+"screen_room_active_comms_walkie_toggle" = "Walkie-talkie mode";
+"screen_room_active_comms_walkie_transmitting" = "Transmitting…";
 "untranslated" = "Untranslated";
-"screen_airos_comms_bridge_title" = "Sign in";
-"screen_airos_comms_bridge_subtitle" = "Sign in with your organisation account in the page above, then tap Continue to open communications.";
-"screen_airos_comms_bridge_continue" = "Continue";
-"screen_airos_comms_bridge_error_matrix_disabled" = "Communications are not available for this organisation.";
-"screen_airos_comms_bridge_error_not_signed_in" = "You are not signed in. Complete sign-in in the page above, then try again.";
-"screen_airos_comms_bridge_error_generic" = "Could not start communications. Please try again.";

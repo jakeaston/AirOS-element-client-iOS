@@ -20,6 +20,7 @@ class RoomScreenViewModel: RoomScreenViewModelType, RoomScreenViewModelProtocol 
     private let appSettings: AppSettings
     private let analyticsService: AnalyticsService
     private let userIndicatorController: UserIndicatorControllerProtocol
+    private let activeCommsWalkieSubject: CurrentValueSubject<Bool, Never>
     
     private var initialSelectedPinnedEventID: String?
     private let pinnedEventStringBuilder: RoomEventStringBuilder
@@ -57,12 +58,14 @@ class RoomScreenViewModel: RoomScreenViewModelType, RoomScreenViewModelProtocol 
          appSettings: AppSettings,
          appHooks: AppHooks,
          analyticsService: AnalyticsService,
-         userIndicatorController: UserIndicatorControllerProtocol) {
+         userIndicatorController: UserIndicatorControllerProtocol,
+         activeCommsWalkieSubject: CurrentValueSubject<Bool, Never> = .init(false)) {
         clientProxy = userSession.clientProxy
         self.roomProxy = roomProxy
         self.appSettings = appSettings
         self.analyticsService = analyticsService
         self.userIndicatorController = userIndicatorController
+        self.activeCommsWalkieSubject = activeCommsWalkieSubject
         
         self.initialSelectedPinnedEventID = initialSelectedPinnedEventID
         pinnedEventStringBuilder = .pinnedEventStringBuilder(userID: roomProxy.ownUserID)
@@ -72,7 +75,8 @@ class RoomScreenViewModel: RoomScreenViewModelType, RoomScreenViewModelProtocol 
                                             hasOngoingCall: roomProxy.infoPublisher.value.hasRoomCall,
                                             isDirectOneToOneRoom: roomProxy.isDirectOneToOneRoom,
                                             hasSuccessor: roomProxy.infoPublisher.value.successor != nil,
-                                            roomHistorySharingState: roomProxy.infoPublisher.value.historySharingState)
+                                            roomHistorySharingState: roomProxy.infoPublisher.value.historySharingState,
+                                            isActiveCommsWalkieEnabled: activeCommsWalkieSubject.value)
         super.init(initialViewState: appHooks.roomScreenHook.update(viewState),
                    mediaProvider: userSession.mediaProvider)
         
@@ -120,6 +124,9 @@ class RoomScreenViewModel: RoomScreenViewModelType, RoomScreenViewModelProtocol 
             actionsSubject.send(.stopLiveLocationSharing)
         case .tappedOpenLiveLocation:
             actionsSubject.send(.displayLiveLocation)
+        case .setActiveCommsWalkieEnabled(let enabled):
+            appSettings.setActiveCommsWalkieEnabled(enabled, forRoomID: roomProxy.id)
+            activeCommsWalkieSubject.send(enabled)
         }
     }
     
@@ -163,6 +170,13 @@ class RoomScreenViewModel: RoomScreenViewModelType, RoomScreenViewModelProtocol 
     // MARK: - Private
     
     private func setupSubscriptions(ongoingCallRoomIDPublisher: CurrentValuePublisher<String?, Never>) {
+        activeCommsWalkieSubject
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isEnabled in
+                self?.state.isActiveCommsWalkieEnabled = isEnabled
+            }
+            .store(in: &cancellables)
+        
         appSettings.$roomThreadListEnabled
             .weakAssign(to: \.state.roomThreadListEnabled, on: self)
             .store(in: &cancellables)

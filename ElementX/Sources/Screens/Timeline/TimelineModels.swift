@@ -108,6 +108,8 @@ struct TimelineViewState: BindableState {
 
     var ownUserID: String
     var canCurrentUserSendMessage = false
+    /// Visual feedback while the walkie-talkie push-to-talk surface is held.
+    var isWalkiePTTHolding = false
     var canCurrentUserRedactOthers = false
     var canCurrentUserRedactSelf = false
     var canCurrentUserPin = false
