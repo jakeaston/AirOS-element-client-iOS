@@ -11,3 +11,9 @@
 "soft_logout_signin_notice" = "Your homeserver (%1$s) admin has signed you out of your account %2$s (%3$s).";
 "soft_logout_signin_title" = "Sign in";
 "untranslated" = "Untranslated";
+"screen_airos_comms_bridge_title" = "Sign in";
+"screen_airos_comms_bridge_subtitle" = "Sign in with your organisation account in the page above, then tap Continue to open communications.";
+"screen_airos_comms_bridge_continue" = "Continue";
+"screen_airos_comms_bridge_error_matrix_disabled" = "Communications are not available for this organisation.";
+"screen_airos_comms_bridge_error_not_signed_in" = "You are not signed in. Complete sign-in in the page above, then try again.";
+"screen_airos_comms_bridge_error_generic" = "Could not start communications. Please try again.";

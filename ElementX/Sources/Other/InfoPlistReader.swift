@@ -28,6 +28,12 @@ struct InfoPlistReader {
         static let classicAppKeychainServiceIdentifier = "classicAppKeychainServiceIdentifier"
         static let classicAppKeychainAccessGroupIdentifier = "classicAppKeychainAccessGroupIdentifier"
         static let classicAppDeepLinkURL = "classicAppDeepLinkURL"
+        
+        static let airOSCommsEnabled = "airOSCommsEnabled"
+        static let airOSCommsAPIBaseURL = "airOSCommsAPIBaseURL"
+        static let airOSCommsWebSignInURL = "airOSCommsWebSignInURL"
+        static let airOSCommsOrganisationSlug = "airOSCommsOrganisationSlug"
+        static let airOSCommsMatrixServerName = "airOSCommsMatrixServerName"
     }
     
     private enum Values {
@@ -137,6 +143,28 @@ struct InfoPlistReader {
     var classicAppDeepLinkURL: URL? {
         let urlString: String? = infoPlistValue(forKey: Keys.classicAppDeepLinkURL)
         return urlString.flatMap { URL(string: $0) }
+    }
+    
+    // MARK: - AirOS Comms (optional white-label)
+    
+    var airOSCommsEnabled: Bool? {
+        infoPlistValue(forKey: Keys.airOSCommsEnabled)
+    }
+    
+    var airOSCommsAPIBaseURL: String? {
+        infoPlistValue(forKey: Keys.airOSCommsAPIBaseURL)
+    }
+    
+    var airOSCommsWebSignInURL: String? {
+        infoPlistValue(forKey: Keys.airOSCommsWebSignInURL)
+    }
+    
+    var airOSCommsOrganisationSlug: String? {
+        infoPlistValue(forKey: Keys.airOSCommsOrganisationSlug)
+    }
+    
+    var airOSCommsMatrixServerName: String? {
+        infoPlistValue(forKey: Keys.airOSCommsMatrixServerName)
     }
     
     // MARK: - Private
