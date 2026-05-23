@@ -39,6 +39,18 @@ internal enum UntranslatedL10n {
   }
   /// Sign in
   internal static var softLogoutSigninTitle: String { return UntranslatedL10n.tr("Untranslated", "soft_logout_signin_title") }
+  /// Sign in
+  internal static var screenAirosCommsBridgeTitle: String { return UntranslatedL10n.tr("Untranslated", "screen_airos_comms_bridge_title") }
+  /// Sign in with your organisation account in the page above, then tap Continue to open communications.
+  internal static var screenAirosCommsBridgeSubtitle: String { return UntranslatedL10n.tr("Untranslated", "screen_airos_comms_bridge_subtitle") }
+  /// Continue
+  internal static var screenAirosCommsBridgeContinue: String { return UntranslatedL10n.tr("Untranslated", "screen_airos_comms_bridge_continue") }
+  /// Communications are not available for this organisation.
+  internal static var screenAirosCommsBridgeErrorMatrixDisabled: String { return UntranslatedL10n.tr("Untranslated", "screen_airos_comms_bridge_error_matrix_disabled") }
+  /// You are not signed in. Complete sign-in in the page above, then try again.
+  internal static var screenAirosCommsBridgeErrorNotSignedIn: String { return UntranslatedL10n.tr("Untranslated", "screen_airos_comms_bridge_error_not_signed_in") }
+  /// Could not start communications. Please try again.
+  internal static var screenAirosCommsBridgeErrorGeneric: String { return UntranslatedL10n.tr("Untranslated", "screen_airos_comms_bridge_error_generic") }
   /// Untranslated
   internal static var untranslated: String { return UntranslatedL10n.tr("Untranslated", "untranslated") }
   /// Plural format key: "%#@VARIABLE@"

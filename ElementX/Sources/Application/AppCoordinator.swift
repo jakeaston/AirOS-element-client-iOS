@@ -45,6 +45,7 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
     }
     
     private var authenticationFlowCoordinator: AuthenticationFlowCoordinator?
+    private var airOSCommsBridgeCoordinator: AirOSCommsBridgeFlowCoordinator?
     private let appLockFlowCoordinator: AppLockFlowCoordinator
     // periphery:ignore - used to avoid deallocation
     private var appLockSetupFlowCoordinator: AppLockSetupFlowCoordinator?
@@ -67,6 +68,7 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
     init(appDelegate: AppDelegate) {
         let appHooks = AppHooks()
         appHooks.setUp()
+        appHooks.configureAirOSCommsIfNeeded()
         
         // Override colours before we start building any UI components.
         appHooks.compoundHook.override(colors: Color.compound, uiColors: UIColor.compound)
@@ -357,6 +359,7 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
     func authenticationFlowCoordinator(didLoginWithSession userSession: UserSessionProtocol) {
         self.userSession = userSession
         authenticationFlowCoordinator = nil
+        airOSCommsBridgeCoordinator = nil
         stateMachine.processEvent(.createdUserSession)
     }
     
@@ -644,6 +647,14 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
     }
     
     private func startAuthentication() {
+        if AirOSCommsConfiguration.shouldUseAirOSCommsBridge {
+            startAirOSCommsBridgeAuthentication()
+        } else {
+            startElementXAuthentication()
+        }
+    }
+    
+    private func startElementXAuthentication() {
         let encryptionKeyProvider = EncryptionKeyProvider()
         let classicAppManager = ClassicAppManager()
         let authenticationService = AuthenticationService(userSessionStore: userSessionStore,
@@ -670,6 +681,23 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
            let storedAppRoute = storedAppRoute.take() {
             coordinator.handleAppRoute(storedAppRoute, animated: false)
         }
+    }
+    
+    private func startAirOSCommsBridgeAuthentication() {
+        guard let configuration = AirOSCommsConfiguration.loadValidated() else {
+            MXLog.error("AirOS Comms bridge was expected to be configured but validation failed; falling back to Element X authentication.")
+            startElementXAuthentication()
+            return
+        }
+        
+        let coordinator = AirOSCommsBridgeFlowCoordinator(navigationRootCoordinator: navigationRootCoordinator,
+                                                        configuration: configuration,
+                                                        userSessionStore: userSessionStore,
+                                                        appSettings: appSettings,
+                                                        appHooks: appHooks)
+        coordinator.delegate = self
+        airOSCommsBridgeCoordinator = coordinator
+        coordinator.start()
     }
     
     private func runPostSessionSetupTasks() async {
@@ -849,6 +877,8 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
     }
     
     private func presentSplashScreen(isSoftLogout: Bool = false, disableAppLock: Bool = false) {
+        airOSCommsBridgeCoordinator = nil
+        authenticationFlowCoordinator = nil
         navigationRootCoordinator.setRootCoordinator(SplashScreenCoordinator())
         
         if isSoftLogout {
@@ -1244,5 +1274,16 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
                     task.setTaskCompleted(success: true)
                 }
             }
+    }
+}
+
+// MARK: - AirOS Comms bridge
+
+extension AppCoordinator: AirOSCommsBridgeFlowCoordinatorDelegate {
+    func airOSCommsBridgeFlowCoordinator(didCompleteWith userSession: UserSessionProtocol) {
+        airOSCommsBridgeCoordinator = nil
+        authenticationFlowCoordinator = nil
+        self.userSession = userSession
+        stateMachine.processEvent(.createdUserSession)
     }
 }
