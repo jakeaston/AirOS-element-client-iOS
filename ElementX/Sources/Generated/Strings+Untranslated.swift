@@ -39,7 +39,7 @@ internal enum UntranslatedL10n {
   }
   /// Sign in
   internal static var softLogoutSigninTitle: String { return UntranslatedL10n.tr("Untranslated", "soft_logout_signin_title") }
-  /// Hold the button to talk. Incoming voice messages play on the speaker.
+  /// Hold the button to talk. Incoming voice messages play on the speaker. Live location starts automatically; use the banner to stop sharing.
   internal static var screenRoomActiveCommsWalkieBanner: String { return UntranslatedL10n.tr("Untranslated", "screen_room_active_comms_walkie_banner") }
   /// Hold to talk
   internal static var screenRoomActiveCommsWalkieHold: String { return UntranslatedL10n.tr("Untranslated", "screen_room_active_comms_walkie_hold") }

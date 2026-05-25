@@ -17,6 +17,7 @@ typealias RoomScreenViewModelType = StateStoreViewModel<RoomScreenViewState, Roo
 class RoomScreenViewModel: RoomScreenViewModelType, RoomScreenViewModelProtocol {
     private let clientProxy: ClientProxyProtocol
     private let roomProxy: JoinedRoomProxyProtocol
+    private let liveLocationManager: LiveLocationManagerProtocol
     private let appSettings: AppSettings
     private let analyticsService: AnalyticsService
     private let userIndicatorController: UserIndicatorControllerProtocol
@@ -62,6 +63,7 @@ class RoomScreenViewModel: RoomScreenViewModelType, RoomScreenViewModelProtocol 
          activeCommsWalkieSubject: CurrentValueSubject<Bool, Never> = .init(false)) {
         clientProxy = userSession.clientProxy
         self.roomProxy = roomProxy
+        liveLocationManager = userSession.liveLocationManager
         self.appSettings = appSettings
         self.analyticsService = analyticsService
         self.userIndicatorController = userIndicatorController
@@ -173,7 +175,11 @@ class RoomScreenViewModel: RoomScreenViewModelType, RoomScreenViewModelProtocol 
         activeCommsWalkieSubject
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isEnabled in
-                self?.state.isActiveCommsWalkieEnabled = isEnabled
+                guard let self else { return }
+                state.isActiveCommsWalkieEnabled = isEnabled
+                if isEnabled {
+                    startLiveLocationSharingForWalkieModeIfNeeded()
+                }
             }
             .store(in: &cancellables)
         
@@ -456,7 +462,30 @@ class RoomScreenViewModel: RoomScreenViewModelType, RoomScreenViewModelProtocol 
         state.pinnedEventsBannerState.previousPin()
     }
     
+    private func startLiveLocationSharingForWalkieModeIfNeeded() {
+        Task { @MainActor in
+            guard activeCommsWalkieSubject.value else {
+                return
+            }
+            
+            guard appSettings.liveLocationSharingSessionsByRoomID[roomProxy.id] == nil else {
+                return
+            }
+            
+            let result = await liveLocationManager.startLiveLocation(roomID: roomProxy.id,
+                                                                     duration: Self.walkieTalkieAutoLiveLocationDuration)
+            
+            if case let .failure(error) = result {
+                MXLog.error("Failed auto-starting live location for walkie-talkie mode: \(error)")
+                userIndicatorController.submitIndicator(.init(type: .toast, title: L10n.commonFailed))
+            }
+        }
+    }
+    
     // MARK: Loading indicators
+    
+    /// Default live location duration when walkie-talkie mode turns on (matches the one-hour option in the manual duration picker).
+    private static let walkieTalkieAutoLiveLocationDuration = Duration.seconds(60 * 60)
     
     private static let loadingIndicatorIdentifier = "\(RoomScreenViewModel.self)-Loading"
     private static let errorIndicatorIdentifier = "\(RoomScreenViewModel.self)-Error"

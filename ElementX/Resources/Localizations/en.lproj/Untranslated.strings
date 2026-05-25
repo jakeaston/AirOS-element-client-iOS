@@ -12,7 +12,7 @@
 "soft_logout_signin_title" = "Sign in";
 "a11y_screen_room_active_comms_walkie_menu" = "Active comms options";
 "a11y_screen_room_active_comms_walkie_ptt" = "Push to talk";
-"screen_room_active_comms_walkie_banner" = "Hold the button to talk. Incoming voice messages play on the speaker.";
+"screen_room_active_comms_walkie_banner" = "Hold the button to talk. Incoming voice messages play on the speaker. Live location starts automatically; use the banner to stop sharing.";
 "screen_room_active_comms_walkie_hold" = "Hold to talk";
 "screen_room_active_comms_walkie_menu_title" = "Active comms";
 "screen_room_active_comms_walkie_toggle" = "Walkie-talkie mode";
