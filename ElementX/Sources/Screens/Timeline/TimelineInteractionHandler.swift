@@ -8,6 +8,7 @@
 
 import Combine
 import UIKit
+import AVFoundation
 
 enum TimelineInteractionHandlerAction {
     case composer(action: TimelineComposerAction)
@@ -46,6 +47,7 @@ class TimelineInteractionHandler {
     private let linkMetadataProvider: LinkMetadataProviderProtocol
     private let timelineControllerFactory: TimelineControllerFactoryProtocol
     private let pollInteractionHandler: PollInteractionHandlerProtocol
+    private let activeCommsWalkieSubject: CurrentValueSubject<Bool, Never>
     
     private let actionsSubject: PassthroughSubject<TimelineInteractionHandlerAction, Never> = .init()
     var actions: AnyPublisher<TimelineInteractionHandlerAction, Never> {
@@ -71,7 +73,8 @@ class TimelineInteractionHandler {
          analyticsService: AnalyticsService,
          emojiProvider: EmojiProviderProtocol,
          linkMetadataProvider: LinkMetadataProviderProtocol,
-         timelineControllerFactory: TimelineControllerFactoryProtocol) {
+         timelineControllerFactory: TimelineControllerFactoryProtocol,
+         activeCommsWalkieSubject: CurrentValueSubject<Bool, Never>) {
         self.roomProxy = roomProxy
         self.timelineController = timelineController
         self.userSession = userSession
@@ -84,6 +87,7 @@ class TimelineInteractionHandler {
         self.emojiProvider = emojiProvider
         self.linkMetadataProvider = linkMetadataProvider
         self.timelineControllerFactory = timelineControllerFactory
+        self.activeCommsWalkieSubject = activeCommsWalkieSubject
         
         pollInteractionHandler = PollInteractionHandler(analyticsService: analyticsService,
                                                         timelineController: timelineController)
@@ -315,6 +319,9 @@ class TimelineInteractionHandler {
         case .didStopRecording(let previewAudioPlayerState, let url):
             actionsSubject.send(.composer(action: .setMode(mode: .previewVoiceMessage(state: previewAudioPlayerState, waveform: .url(url), isUploading: false))))
             voiceMessageRecorderObserver = nil
+            if activeCommsWalkieSubject.value {
+                Task { await self.sendCurrentVoiceMessage() }
+            }
         case .didFailWithError(let error):
             switch error {
             case .audioRecorderError(.recordPermissionNotGranted):
@@ -418,6 +425,17 @@ class TimelineInteractionHandler {
     
     // MARK: Audio Playback
 
+    private func configureWalkieSpeakerOutputForWalkiePlayback() async {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth])
+            try session.setActive(true)
+            try session.overrideOutputAudioPort(.speaker)
+        } catch {
+            MXLog.error("Failed configuring walkie-talkie audio session: \(error)")
+        }
+    }
+
     func changePlaybackSpeed(for itemID: TimelineItemIdentifier) {
         let nextSpeed = appSettings.voiceMessagePlaybackSpeed.next
         appSettings.voiceMessagePlaybackSpeed = nextSpeed
@@ -426,6 +444,9 @@ class TimelineInteractionHandler {
 
     func playPauseAudio(for itemID: TimelineItemIdentifier) async {
         MXLog.info("Toggle play/pause audio for itemID \(itemID)")
+        if activeCommsWalkieSubject.value {
+            await configureWalkieSpeakerOutputForWalkiePlayback()
+        }
         guard let timelineItem = timelineController.timelineItems.firstUsingStableID(itemID) else {
             fatalError("TimelineItem \(itemID) not found")
         }
@@ -619,7 +640,8 @@ class TimelineInteractionHandler {
                                                       analyticsService: analyticsService,
                                                       emojiProvider: emojiProvider,
                                                       linkMetadataProvider: linkMetadataProvider,
-                                                      timelineControllerFactory: timelineControllerFactory)
+                                                      timelineControllerFactory: timelineControllerFactory,
+                                                      activeCommsWalkieSubject: .init(false))
             
             return .displayMediaPreview(item: item, timelineViewModel: .new(timelineViewModel))
         } else {

@@ -88,6 +88,7 @@ final class AppSettings {
         case hideQuietNotificationAlerts
         
         case developerOptionsEnabled
+        case activeCommsWalkieEnabledRoomIDs
     }
     
     private static var suiteName: String = InfoPlistReader.main.appGroupIdentifier

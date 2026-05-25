@@ -46,6 +46,12 @@ class TimelineViewModel: TimelineViewModelType, TimelineViewModelProtocol {
     
     private var paginateBackwardsTask: Task<Void, Never>?
     private var paginateForwardsTask: Task<Void, Never>?
+    
+    private let activeCommsWalkieSubject: CurrentValueSubject<Bool, Never>
+    
+    private var walkieModeEngagedAt: Date?
+    private var walkieAutoPlayedVoiceItemIDs = Set<TimelineItemIdentifier>()
+    private var walkieAutoplayDebounceTask: Task<Void, Never>?
 
     init(roomProxy: JoinedRoomProxyProtocol,
          focussedEventID: String? = nil,
@@ -58,7 +64,8 @@ class TimelineViewModel: TimelineViewModelType, TimelineViewModelProtocol {
          analyticsService: AnalyticsService,
          emojiProvider: EmojiProviderProtocol,
          linkMetadataProvider: LinkMetadataProviderProtocol,
-         timelineControllerFactory: TimelineControllerFactoryProtocol) {
+         timelineControllerFactory: TimelineControllerFactoryProtocol,
+         activeCommsWalkieSubject: CurrentValueSubject<Bool, Never> = .init(false)) {
         self.roomProxy = roomProxy
         self.timelineController = timelineController
         self.userSession = userSession
@@ -69,6 +76,7 @@ class TimelineViewModel: TimelineViewModelType, TimelineViewModelProtocol {
         self.appMediator = appMediator
         self.emojiProvider = emojiProvider
         self.timelineControllerFactory = timelineControllerFactory
+        self.activeCommsWalkieSubject = activeCommsWalkieSubject
         
         let voiceMessageRecorder = VoiceMessageRecorder(audioRecorder: AudioRecorder(), mediaPlayerProvider: mediaPlayerProvider)
         
@@ -83,7 +91,8 @@ class TimelineViewModel: TimelineViewModelType, TimelineViewModelProtocol {
                                                                 analyticsService: analyticsService,
                                                                 emojiProvider: emojiProvider,
                                                                 linkMetadataProvider: linkMetadataProvider,
-                                                                timelineControllerFactory: timelineControllerFactory)
+                                                                timelineControllerFactory: timelineControllerFactory,
+                                                                activeCommsWalkieSubject: activeCommsWalkieSubject)
         
         let hideTimelineMedia = switch userSession.clientProxy.timelineMediaVisibilityPublisher.value {
         case .always:
@@ -218,6 +227,8 @@ class TimelineViewModel: TimelineViewModelType, TimelineViewModelProtocol {
             }
             let serverNames = roomProxy.knownServerNames(maxCount: 50) // Limit to the same number used by ClientProxy.resolveRoomAlias(_:)
             actionsSubject.send(.displayRoom(roomID: predecessorID, via: Array(serverNames)))
+        case .activeCommsWalkiePTT(let isPressed):
+            processActiveCommsWalkiePTT(isPressed: isPressed)
         }
     }
 
@@ -409,6 +420,66 @@ class TimelineViewModel: TimelineViewModelType, TimelineViewModelProtocol {
         }
     }
     
+    private func processActiveCommsWalkiePTT(isPressed: Bool) {
+        guard activeCommsWalkieSubject.value, state.timelineState.isLive else {
+            return
+        }
+        
+        state.isWalkiePTTHolding = isPressed
+        
+        if isPressed {
+            Task {
+                await mediaPlayerProvider.detachAllStates(except: nil)
+                await timelineInteractionHandler.startRecordingVoiceMessage()
+            }
+        } else {
+            Task { await timelineInteractionHandler.stopRecordingVoiceMessage() }
+        }
+    }
+    
+    private func scheduleWalkieAutoplayProcessing(for items: [RoomTimelineItemProtocol]) {
+        walkieAutoplayDebounceTask?.cancel()
+        let capturedItems = items
+        walkieAutoplayDebounceTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled else { return }
+            await self?.processWalkieAutoplayCandidates(items: capturedItems)
+        }
+    }
+    
+    private func processWalkieAutoplayCandidates(items: [RoomTimelineItemProtocol]) async {
+        guard activeCommsWalkieSubject.value,
+              timelineController.timelineKind == .live,
+              state.timelineState.isLive,
+              let engagedAt = walkieModeEngagedAt else {
+            return
+        }
+        
+        let ownID = roomProxy.ownUserID
+        let engagementFloor = engagedAt.addingTimeInterval(-2)
+        
+        for item in items {
+            guard let voiceItem = item as? VoiceMessageRoomTimelineItem else {
+                continue
+            }
+            
+            guard voiceItem.sender.id != ownID else {
+                continue
+            }
+            
+            guard voiceItem.timestamp >= engagementFloor else {
+                continue
+            }
+            
+            guard !walkieAutoPlayedVoiceItemIDs.contains(voiceItem.id) else {
+                continue
+            }
+            
+            walkieAutoPlayedVoiceItemIDs.insert(voiceItem.id)
+            await timelineInteractionHandler.playPauseAudio(for: voiceItem.id)
+        }
+    }
+    
     private func updateMembers(_ members: [RoomMemberProxyProtocol]) {
         state.members = members.reduce(into: [String: RoomMemberState]()) { dictionary, member in
             dictionary[member.userID] = RoomMemberState(displayName: member.displayName, avatarURL: member.avatarURL)
@@ -432,6 +503,22 @@ class TimelineViewModel: TimelineViewModelType, TimelineViewModelProtocol {
     }
     
     private func setupSubscriptions() {
+        activeCommsWalkieSubject
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isWalkieOn in
+                guard let self else { return }
+                if isWalkieOn {
+                    walkieModeEngagedAt = Date()
+                } else {
+                    walkieModeEngagedAt = nil
+                    walkieAutoPlayedVoiceItemIDs.removeAll()
+                    state.isWalkiePTTHolding = false
+                    Task { await timelineInteractionHandler.cancelWalkieRecordingIfInProgress() }
+                }
+            }
+            .store(in: &cancellables)
+        
         timelineController.callbacks
             .receive(on: DispatchQueue.main)
             .sink { [weak self] callback in
@@ -440,6 +527,7 @@ class TimelineViewModel: TimelineViewModelType, TimelineViewModelProtocol {
                 switch callback {
                 case .updatedTimelineItems(let updatedItems, let isSwitchingTimelines):
                     buildTimelineViews(timelineItems: updatedItems, isSwitchingTimelines: isSwitchingTimelines)
+                    scheduleWalkieAutoplayProcessing(for: updatedItems)
                     
                     if !updatedItems.isEmpty {
                         analyticsService.signpost.finishTransaction(.openRoom)

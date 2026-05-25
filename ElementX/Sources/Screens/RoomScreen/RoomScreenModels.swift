@@ -55,6 +55,9 @@ struct RoomScreenViewState: BindableState {
     
     var canSendMessage = true
     
+    /// When enabled, the room uses push-to-talk voice with automatic playback on the speaker.
+    var isActiveCommsWalkieEnabled = false
+    
     /// Whether or not starting a call is supported.
     var isCallingEnabled = true
     /// Whether or not the user is allowed to join calls in this room.

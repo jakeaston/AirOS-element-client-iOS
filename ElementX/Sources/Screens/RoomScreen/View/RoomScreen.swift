@@ -138,12 +138,29 @@ struct RoomScreen: View {
     private var composer: some View {
         if context.viewState.hasSuccessor {
             tombstonedDialogue
+        } else if context.viewState.isActiveCommsWalkieEnabled,
+                  timelineContext.viewState.canCurrentUserSendMessage,
+                  !ProcessInfo.isRunningAccessibilityTests {
+            activeCommsWalkieComposer
         } else if context.viewState.canSendMessage, !ProcessInfo.isRunningAccessibilityTests {
             // We are not sure why but when wrapped in the room screen the composer toolbar breaks the accessibility tests
             composerToolbar
         } else {
             ComposerDisabledView()
         }
+    }
+    
+    private var activeCommsWalkieComposer: some View {
+        VStack(spacing: 0) {
+            ActiveCommsWalkieTalkieView(isHolding: timelineContext.viewState.isWalkiePTTHolding) { isPressed in
+                timelineContext.send(viewAction: .activeCommsWalkiePTT(isPressed: isPressed))
+            }
+        }
+        .padding(.top, 8)
+        .background(Color.compound.bgCanvasDefault.ignoresSafeArea())
+        .environmentObject(timelineContext)
+        .environment(\.timelineContext, timelineContext)
+        .environment(\.shouldAutomaticallyLoadImages, !timelineContext.viewState.hideTimelineMedia)
     }
     
     private var tombstonedDialogue: some View {
